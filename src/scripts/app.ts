@@ -8,7 +8,11 @@
 // @grant        none
 // ==/UserScript==
 
-import { isNil, trim, map } from 'lodash';
+import { isNil, trim, endsWith } from 'lodash';
+
+function getRandomArbitrary(min: number, max: number): number {
+  return Math.ceil(Math.random() * (max - min) + min);
+}
 
 class TurboTranslator {
   BUTTON_SELECTOR = '#turbo-translate-button';
@@ -96,14 +100,17 @@ class TurboTranslator {
     });
   }
 
-  private setInput(text: string) {
+  private async setInput(text: string) {
     this.leftInput.click();
     this.leftInput.value = text;
+    this.leftInput.click();
+    this.leftInput.click();
     this.leftInput.click();
   }
 
   private async translateChunk(text: string): Promise<string> {
-    this.setInput(text);
+    await this.resetInput();
+    await this.setInput(text);
     return await this.newTranslation();
   }
 
@@ -135,6 +142,12 @@ class TurboTranslator {
     return this.translationText!;
   }
 
+  private wait(timeMs: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      setTimeout(resolve, timeMs);
+    });
+  }
+
   private async translationValuePassesTest(test: (value: string | null) => boolean): Promise<void> {
     return new Promise((resolve, reject) => {
       const handler = setInterval(() => {
@@ -142,7 +155,7 @@ class TurboTranslator {
         if (val === null) {
           console.error('translation text is null... continuing but... this is wrong...');
         }
-        if (test(this.translationText)) {
+        if (test(val)) {
           window.clearInterval(handler);
           resolve();
         }
@@ -151,20 +164,28 @@ class TurboTranslator {
   }
 
   private async translationValueIs(value: string | null): Promise<void> {
-    return await this.translationValuePassesTest(v => v === value);
+    return await this.translationValuePassesTest(v => {
+      console.log('::translationValueIs()', { v, value });
+      return v === value;
+    });
   }
 
   private async translationValueIsNot(value: string | null): Promise<void> {
-    return await this.translationValuePassesTest(v => v !== value);
+    return await this.translationValuePassesTest(
+      v => !isNil(v) && v !== value && !v.endsWith('...')
+    );
   }
 
   private async resetInput() {
-    this.setInput('');
-    await this.translationValueIs('');
+    const id = this.uuidv4();
+    const contains = (v: string | null) => !!v && v.includes(id);
+    await this.setInput(id);
+    await this.translationValuePassesTest(contains);
+    await this.setInput('');
+    await this.translationValuePassesTest(v => !contains(v));
   }
 
   private async translate(text: string): Promise<string> {
-    await this.resetInput();
     const chunks = await this.chunks(text);
     const translated = await this.translateChunks(chunks);
     const translation = translated.join(' ');
@@ -189,7 +210,11 @@ class TurboTranslator {
     if (isNil(target)) {
       return null;
     }
-    return target.innerText;
+    return trim(target.innerText);
+  }
+
+  private uuidv4(): string {
+    return trim(`${getRandomArbitrary(1, 99999999999999)}`);
   }
 }
 
