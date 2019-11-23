@@ -1,13 +1,3 @@
-// ==UserScript==
-// @name         Turbo translate
-// @namespace    Turbo translate
-// @version      0.1
-// @description  Fast translation with google translate
-// @author       Niedzwiedzw
-// @match        https://translate.google.com/
-// @grant        none
-// ==/UserScript==
-
 import { isNil, trim, endsWith } from 'lodash';
 
 function getRandomArbitrary(min: number, max: number): number {
@@ -24,6 +14,7 @@ class TurboTranslator {
   public constructor() {
     console.log(this.BUTTON_SELECTOR);
     console.log(this.button);
+    console.log('version:', 3);
     let button = this.button;
     if (isNil(button)) {
       console.log('button not present, creating one');
@@ -55,10 +46,6 @@ class TurboTranslator {
     return input as HTMLTextAreaElement;
   }
 
-  private get copyButton(): HTMLElement | null {
-    return document.querySelector('.tild-copy-translation-button');
-  }
-
   private createButton() {
     const button = document.createElement('button');
     button.innerHTML = 'START';
@@ -68,7 +55,7 @@ class TurboTranslator {
   }
 
   private async run() {
-    this.intervalHandlers.push(window.setInterval(() => this.performTranslation(), this.INTERVAL));
+    this.performTranslation();
   }
 
   private shouldPerform(text: string): boolean {
@@ -97,6 +84,7 @@ class TurboTranslator {
       this.lastClipboard = translation;
       console.log(`i got it! ${translation}`);
       navigator.clipboard.writeText(translation);
+      alert(`Translated text of length [${text.length}]!`);
     });
   }
 
@@ -183,6 +171,7 @@ class TurboTranslator {
     await this.translationValuePassesTest(contains);
     await this.setInput('');
     await this.translationValuePassesTest(v => !contains(v));
+    await this.translationValueIs('');
   }
 
   private async translate(text: string): Promise<string> {
@@ -214,7 +203,7 @@ class TurboTranslator {
   }
 
   private uuidv4(): string {
-    return trim(`${getRandomArbitrary(1, 99999999999999)}`);
+    return trim(`${getRandomArbitrary(9999999, 99999999999999)}`);
   }
 }
 
