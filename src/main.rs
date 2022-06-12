@@ -118,6 +118,7 @@ enum Commands {
         #[clap(short, long, parse(from_os_str), value_name = "FILE")]
         file: PathBuf,
     },
+    /// uses the generated workspace to perform a translation on a target file
     Translate {
         /// translated file path
         #[clap(short, long, parse(from_os_str), value_name = "FILE")]
@@ -135,6 +136,30 @@ use serde::{
     Deserialize,
     Serialize,
 };
+
+pub mod translation_service {
+    use super::*;
+    use deepl_api::*;
+
+    pub struct TranslationService {
+        pub deepl_client: DeepL,
+    }
+
+    impl TranslationService {
+        pub fn new(deepl_api_key: String) -> Self {
+            let deepl_client = DeepL::new(deepl_api_key);
+
+            Self { deepl_client }
+        }
+    }
+
+    impl TranslationService {
+        pub async fn translate_text(text: &str) -> Result<String> {
+            let task = TranslatableTextList {};
+        }
+    }
+}
+
 /// this represents the original file that is being translated
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OriginalDocument {
@@ -154,13 +179,14 @@ pub struct TranslationSegment {
     pub original_text: String,
     pub translated_text: String,
     pub checked: bool,
+    original_document_slice: OriginalDocumentSlice,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FileFormat {
     Txt,
 }
-
-type TranslationSegmentMap = Vec<(OriginalDocumentSlice, TranslationSegment)>;
+use indexmap::IndexMap;
+type TranslationSegmentMap = IndexMap<String, TranslationSegment>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranslationSegments {
     pub segments: TranslationSegmentMap,
@@ -179,16 +205,18 @@ impl TranslationSegments {
         let segments: TranslationSegmentMap = text
             .split_sentence_bound_indices()
             .into_iter()
-            .map(|(start, sentence)| {
+            .enumerate()
+            .map(|(index, (start, sentence))| {
                 (
-                    OriginalDocumentSlice {
-                        start,
-                        len: sentence.len(),
-                    },
+                    format!("segment_{index}"),
                     TranslationSegment {
                         original_text: sentence.to_string(),
                         translated_text: sentence.to_string(), // here the automatic translation should be performed
                         checked: false,
+                        original_document_slice: OriginalDocumentSlice {
+                            start,
+                            len: sentence.len(),
+                        },
                     },
                 )
             })
@@ -275,7 +303,7 @@ async fn main() -> Result<()> {
             }
             std::fs::write(
                 target_path,
-                toml::to_string(&config).wrap_err("serializing default config")?,
+                toml::to_string_pretty(&config).wrap_err("serializing default config")?,
             )
             .wrap_err("writing default config")?;
         }
@@ -290,9 +318,10 @@ async fn main() -> Result<()> {
                 let translation_workspace = TranslationWorkspace::for_document(original_document)
                     .await
                     .context("creating workspace for [{file:?}]")?;
-                let content = toml::to_string(&translation_workspace).wrap_err_with(|| {
-                    format!("serializing translation workspace for [{file:?}]")
-                })?;
+                let content =
+                    toml::to_string_pretty(&translation_workspace).wrap_err_with(|| {
+                        format!("serializing translation workspace for [{file:?}]")
+                    })?;
                 tokio::fs::write(&default_path, content)
                     .await
                     .wrap_err_with(|| format!("saving a default workspace for {file:?}"))?;
