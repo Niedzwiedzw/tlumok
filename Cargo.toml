@@ -11,6 +11,7 @@ csv = "1.1.6"
 deepl-api = "0.3.1"
 eyre = "0.6.8"
 iced = { version = "0.4.2", features = ["iced_pure", "pure", "tokio"] }
+indexmap = { version = "1.8.2", features = ["serde", "std", "rayon"] }
 serde = "1.0.137"
 tokio = { version = "1.19.2", features = ["full"] }
 toml = { version = "0.5.9", features = ["preserve_order"] }
