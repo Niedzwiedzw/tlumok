@@ -1,57 +1,22 @@
-use std::path::{
-    Path,
-    PathBuf,
-};
-
+#![feature(path_try_exists)]
 use eyre::{
     Result,
     WrapErr,
 };
-
+use futures::StreamExt;
+use futures::TryStreamExt;
+use std::path::{
+    Path,
+    PathBuf,
+};
 use tracing_subscriber::{
     fmt,
     prelude::__tracing_subscriber_SubscriberExt,
     EnvFilter,
 };
 
-pub mod ui {
-
-    use iced::{
-        pure::*,
-        Command,
-    };
-    #[derive(Default, Debug, Clone)]
-    pub struct TlumokState {}
-    #[derive(Debug, Clone)]
-    pub enum Message {}
-    fn app_title() -> String {
-        format!("Tłumok {}", clap::crate_version!())
-    }
-    impl Application for TlumokState {
-        type Executor = iced::executor::Default;
-
-        type Message = Message;
-
-        type Flags = ();
-
-        fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
-            (Self::default(), Command::none())
-        }
-
-        fn title(&self) -> String {
-            app_title()
-        }
-
-        fn update(&mut self, _message: Self::Message) -> iced::Command<Self::Message> {
-            Command::none()
-        }
-
-        fn view(&self) -> iced::pure::Element<'_, Self::Message> {
-            let content = column().push(text(app_title()));
-            container(content).into()
-        }
-    }
-}
+use futures::FutureExt;
+pub mod ui;
 pub mod filesystem {
     use std::path::PathBuf;
 
@@ -75,7 +40,7 @@ pub struct TlumokConfig {
 }
 
 impl TlumokConfig {
-    pub const DEFAULT_CONFIG_FILENAME: &'static str = "tlumok-settings.yaml";
+    pub const DEFAULT_CONFIG_FILENAME: &'static str = "tlumok-settings.toml";
     pub fn default_config_path() -> Result<PathBuf> {
         Ok(filesystem::base_directory()?.join(Self::DEFAULT_CONFIG_FILENAME))
     }
@@ -96,19 +61,8 @@ use clap::{
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
-    // /// Optional name to operate on
-    // name: Option<String>,
-
-    // /// Sets a custom config file
-    // #[clap(short, long, parse(from_os_str), value_name = "FILE")]
-    // config: Option<PathBuf>,
-
-    // /// Turn debugging information on
-    // #[clap(short, long, parse(from_occurrences))]
-    // debug: usize,
-    /// command
     #[clap(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -125,37 +79,146 @@ enum Commands {
         file: PathBuf,
     },
     /// generates default config
-    GenerateDefaultConfig, // /// does testing things
-                           // Test {
-                           //     /// lists test values
-                           //     #[clap(short, long)]
-                           //     list: bool,
-                           // },
+    GenerateDefaultTlumokConfig, // /// does testing things
+    /// creates a new file of the original format, with translations applied
+    ApplyTranslations {
+        /// translated file path
+        #[clap(short, long, parse(from_os_str), value_name = "FILE")]
+        file: PathBuf,
+    },
 }
 use serde::{
     Deserialize,
     Serialize,
 };
-
+pub static NOT_TRANSLATED_MARKER: &'static str = "TODO!!!";
 pub mod translation_service {
+    use std::sync::Arc;
+
+    use super::Result;
     use super::*;
     use deepl_api::*;
+    use tokio::sync::Mutex;
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Copy)]
+    pub enum Language {
+        Polish,
+        English,
+    }
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Copy)]
+    pub struct TranslationOptions {
+        pub source_language: Language,
+        pub target_language: Language,
+    }
+
+    impl Default for TranslationOptions {
+        fn default() -> Self {
+            Self {
+                source_language: Language::English,
+                target_language: Language::Polish,
+            }
+        }
+    }
+
+    impl Language {
+        pub fn to_deepl_language(self) -> String {
+            match self {
+                Language::Polish => "PL",
+                Language::English => "EN",
+            }
+            .to_string()
+        }
+
+        pub fn deepl_language_opt(self) -> Option<String> {
+            Some(self.to_deepl_language())
+        }
+    }
+
+    impl TranslationOptions {
+        pub fn default_translatable_text_list(&self) -> TranslatableTextList {
+            TranslatableTextList {
+                source_language: self.source_language.deepl_language_opt(),
+                target_language: self.target_language.to_deepl_language(),
+                texts: vec![],
+            }
+        }
+
+        pub fn translatable_text_list(&self, text: &str) -> TranslatableTextList {
+            TranslatableTextList {
+                texts: vec![text.to_string()],
+                ..self.default_translatable_text_list()
+            }
+        }
+    }
 
     pub struct TranslationService {
-        pub deepl_client: DeepL,
+        pub deepl_client: Arc<Mutex<DeepL>>,
     }
 
     impl TranslationService {
-        pub fn new(deepl_api_key: String) -> Self {
+        pub async fn new(deepl_api_key: String) -> Result<Self> {
             let deepl_client = DeepL::new(deepl_api_key);
-
-            Self { deepl_client }
+            tracing::info!(
+                "{:#?}",
+                deepl_client
+                    .usage_information()
+                    .await
+                    .map_err(|e| eyre::eyre!("{e:?}"))
+                    .wrap_err("connecting to deepl api")?
+            );
+            let deepl_client = Arc::new(Mutex::new(deepl_client));
+            Ok(Self { deepl_client })
         }
     }
 
     impl TranslationService {
-        pub async fn translate_text(text: &str) -> Result<String> {
-            let task = TranslatableTextList {};
+        #[tracing::instrument(skip(self), level = "info")]
+        pub async fn translate_text(
+            &self,
+            text: &str,
+            translation_options: TranslationOptions,
+        ) -> Result<String> {
+            let translatable_text_list = translation_options.translatable_text_list(text);
+            let deepl_client = self.deepl_client.lock().await;
+            let translated = deepl_client
+                .translate(None, translatable_text_list)
+                .await
+                .map_err(|e| eyre::eyre!("{e:?}"))
+                .wrap_err_with(|| format!("getting translation info from deepl"))?;
+
+            let translated = translated
+                .get(0)
+                .ok_or_else(|| eyre::eyre!("parsing deepl response"))?;
+            let translated = translated.text.clone();
+            tracing::info!("translated: \n[{text}]\n->\n[{translated}]");
+            Ok(translated)
+        }
+        pub async fn translate_segment(
+            &self,
+            segment: TranslationSegment,
+            translation_options: TranslationOptions,
+        ) -> Result<TranslationSegment> {
+            let TranslationSegment {
+                original_text,
+                translated,
+                // checked,
+                original_document_slice,
+                ..
+            } = segment.clone();
+            if translated {
+                Ok(segment)
+            } else {
+                let translated_text = self
+                    .translate_text(&original_text, translation_options)
+                    .await?;
+                Ok(TranslationSegment {
+                    original_text,
+                    translated_text,
+                    translated: true,
+                    original_document_slice,
+                    checked: false,
+                })
+            }
         }
     }
 }
@@ -179,13 +242,30 @@ pub struct TranslationSegment {
     pub original_text: String,
     pub translated_text: String,
     pub checked: bool,
-    original_document_slice: OriginalDocumentSlice,
+    pub translated: bool,
+    pub original_document_slice: OriginalDocumentSlice,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FileFormat {
     Txt,
 }
+
+impl std::fmt::Display for FileFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Txt => "txt",
+            }
+        )
+    }
+}
 use indexmap::IndexMap;
+use translation_service::{
+    TranslationOptions,
+    TranslationService,
+};
 type TranslationSegmentMap = IndexMap<String, TranslationSegment>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranslationSegments {
@@ -196,30 +276,50 @@ pub struct TranslationSegments {
 pub struct TranslationWorkspace {
     pub tlumok_version: String,
     pub original_document: OriginalDocument,
+    pub translation_options: TranslationOptions,
     pub segments: TranslationSegments,
 }
-
 impl TranslationSegments {
+    pub async fn translate(
+        self,
+        translation_service: &translation_service::TranslationService,
+        translation_options: TranslationOptions,
+    ) -> Result<Self> {
+        let segments = futures::stream::iter(self.segments)
+            .map(|(index, segment)| {
+                translation_service
+                    .translate_segment(segment, translation_options)
+                    .map(|result| result.map(|translated| (index, translated)))
+            })
+            .buffer_unordered(4)
+            .try_collect()
+            .await
+            .wrap_err("translating document segments")?;
+        Ok(Self { segments })
+    }
     pub async fn generate_from(text: &str) -> Result<Self> {
         use unicode_segmentation::UnicodeSegmentation;
-        let segments: TranslationSegmentMap = text
+        tracing::info!("generating segments");
+        let empty_segments: Vec<_> = text
             .split_sentence_bound_indices()
             .into_iter()
-            .enumerate()
-            .map(|(index, (start, sentence))| {
-                (
-                    format!("segment_{index}"),
-                    TranslationSegment {
-                        original_text: sentence.to_string(),
-                        translated_text: sentence.to_string(), // here the automatic translation should be performed
-                        checked: false,
-                        original_document_slice: OriginalDocumentSlice {
-                            start,
-                            len: sentence.len(),
-                        },
-                    },
-                )
+            .map(|(start, sentence)| TranslationSegment {
+                original_text: sentence.to_string(),
+                translated_text: NOT_TRANSLATED_MARKER.to_string(),
+                checked: false,
+                translated: false,
+                original_document_slice: OriginalDocumentSlice {
+                    start,
+                    len: sentence.len(),
+                },
             })
+            .collect();
+        tracing::info!("translating segments");
+
+        let segments = empty_segments
+            .into_iter()
+            .enumerate()
+            .map(|(index, segment)| (format!("segment_{index}"), segment))
             .collect();
         Ok(Self { segments })
     }
@@ -259,9 +359,112 @@ impl OriginalDocument {
     }
 }
 
+pub type AppTime = chrono::NaiveDateTime;
+pub fn now() -> AppTime {
+    chrono::Local::now().naive_local()
+}
+
+static FILE_SAFE_DATETIME: &'static str = "%Y-%m-%d--%H-%M-%S";
 impl TranslationWorkspace {
+    pub async fn save_translated_document(self) -> Result<()> {
+        let document_path = self.original_document.path.clone();
+        let original_extension = self.original_document.file_format.clone();
+        let translated_document = self.create_translated_document().await?;
+        let now_pretty = now().format(FILE_SAFE_DATETIME);
+        let translated_document_path = document_path.with_extension(format!(
+            "tlumok-translated.{now_pretty}.{original_extension}"
+        ));
+        tokio::fs::write(&translated_document_path, &translated_document)
+            .await
+            .wrap_err_with(|| {
+                format!("saving translated document to {translated_document_path:?}")
+            })?;
+        Ok(())
+    }
+    pub async fn create_translated_document(self) -> Result<String> {
+        let Self {
+            original_document: OriginalDocument { path, .. },
+            segments: TranslationSegments { segments },
+            ..
+        } = self.validated()?;
+        let mut translated_content = tokio::fs::read_to_string(&path)
+            .await
+            .wrap_err_with(|| format!("reading original document at [{path:?}]"))?;
+        for (
+            _,
+            TranslationSegment {
+                original_text,
+                translated_text,
+                original_document_slice: OriginalDocumentSlice { start, len },
+                ..
+            },
+        ) in segments.into_iter().rev()
+        {
+            let range = start..(start + len);
+            let document_content = &translated_content[range.clone()];
+            if document_content != original_text {
+                eyre::bail!("original text from workspace file did not match actual contents of document\ndocument content: [{document_content}]\n according to workspace document: [{original_text}]");
+            }
+            translated_content.replace_range(range, &translated_text);
+        }
+
+        Ok(translated_content)
+    }
+    pub fn validated(self) -> Result<Self> {
+        let validated = &self;
+        if let Some((index, segment)) = validated
+            .segments
+            .segments
+            .iter()
+            .find(|(_, segment)| !segment.translated)
+        {
+            eyre::bail!("segment [{index}] is not translated\n\n{segment:#?}");
+        }
+        if let Some((index, segment)) = validated
+            .segments
+            .segments
+            .iter()
+            .find(|(_, segment)| !segment.checked)
+        {
+            eyre::bail!("segment [{index}] is not checked\n\n{segment:#?}");
+        }
+
+        Ok(self)
+    }
+    pub async fn translate(self, translation_service: &TranslationService) -> Result<Self> {
+        let translation_options = self.translation_options;
+        Ok(Self {
+            segments: self
+                .segments
+                .translate(translation_service, translation_options)
+                .await?,
+            ..self
+        })
+    }
     pub fn default_path_for_document(OriginalDocument { path, .. }: &OriginalDocument) -> PathBuf {
         path.with_extension("tlumok-workspace.toml")
+    }
+
+    #[tracing::instrument]
+    pub async fn load(path: &Path) -> Result<Self> {
+        let content = tokio::fs::read_to_string(path)
+            .await
+            .wrap_err_with(|| format!("reading workspace from {path:?}"))?;
+        let workspace = toml::from_str(&content)
+            .wrap_err_with(|| format!("reading contents of [{path:?}] file"))?;
+        tracing::info!("loaded workspace to [{path:?}]");
+
+        Ok(workspace)
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub async fn save(&self, path: &Path) -> Result<()> {
+        let content = toml::to_string_pretty(self).wrap_err("serializing workspace")?;
+        tokio::fs::write(path, &content)
+            .await
+            .wrap_err_with(|| format!("writing workspace to [{path:?}]"))?;
+        tracing::info!("saved workspace to [{path:?}]");
+        Ok(())
     }
 
     pub async fn for_document(original_document: OriginalDocument) -> Result<Self> {
@@ -272,7 +475,23 @@ impl TranslationWorkspace {
             original_document,
             segments,
             tlumok_version: clap::crate_version!().to_string(),
+            translation_options: Default::default(),
         })
+    }
+    pub async fn get_or_create_for_document(original_document: OriginalDocument) -> Result<Self> {
+        let default_path = Self::default_path_for_document(&original_document);
+        let translation_workspace = if default_path.exists() {
+            Self::load(&default_path).await?
+        } else {
+            Self::for_document(original_document).await?
+        };
+        translation_workspace.save(&default_path).await?;
+        Ok(translation_workspace)
+    }
+
+    pub async fn get_or_create_for_path(path: PathBuf) -> Result<Self> {
+        let original_document = OriginalDocument::from_file(&path)?;
+        Self::get_or_create_for_document(original_document).await
     }
 }
 
@@ -282,7 +501,7 @@ async fn main() -> Result<()> {
     let file_appender = tracing_appender::rolling::daily(&logs_dir, "log.txt");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     let subscriber = tracing_subscriber::registry()
-        .with(EnvFilter::from_default_env().add_directive(tracing::Level::TRACE.into()))
+        .with(EnvFilter::from_default_env().add_directive(tracing::Level::INFO.into()))
         .with(fmt::Layer::new().with_writer(std::io::stdout))
         .with(
             fmt::Layer::new()
@@ -292,46 +511,78 @@ async fn main() -> Result<()> {
         );
     tracing::subscriber::set_global_default(subscriber)
         .context("Unable to set a global subscriber")?;
+
     let Cli { command } = Cli::parse();
     match command {
-        Commands::GenerateDefaultConfig => {
-            let config = TlumokConfig::default();
-            let target_path = TlumokConfig::default_config_path()?;
-            if target_path.exists() {
-                tracing::error!("target path {target_path:?} already exists");
-                return Ok(());
+        Some(command) => match command {
+            Commands::GenerateDefaultTlumokConfig => {
+                let config = TlumokConfig::default();
+                let target_path = TlumokConfig::default_config_path()?;
+                if target_path.exists() {
+                    tracing::error!("target path {target_path:?} already exists");
+                    return Ok(());
+                }
+                std::fs::write(
+                    target_path,
+                    toml::to_string_pretty(&config).wrap_err("serializing default config")?,
+                )
+                .wrap_err("writing default config")?;
             }
-            std::fs::write(
-                target_path,
-                toml::to_string_pretty(&config).wrap_err("serializing default config")?,
-            )
-            .wrap_err("writing default config")?;
-        }
-        Commands::Translate { file } => todo!(),
-        Commands::InitializeTranslationWorkspace { file } => {
-            let original_document = OriginalDocument::from_file(&file)
-                .wrap_err_with(|| format!("opening original document {file:?}"))?;
-            let default_path = TranslationWorkspace::default_path_for_document(&original_document);
-            if default_path.exists() {
-                tracing::error!("[{default_path:?}] already exists");
-            } else {
-                let translation_workspace = TranslationWorkspace::for_document(original_document)
-                    .await
-                    .context("creating workspace for [{file:?}]")?;
-                let content =
-                    toml::to_string_pretty(&translation_workspace).wrap_err_with(|| {
-                        format!("serializing translation workspace for [{file:?}]")
-                    })?;
-                tokio::fs::write(&default_path, content)
-                    .await
-                    .wrap_err_with(|| format!("saving a default workspace for {file:?}"))?;
-                tracing::info!("new workspace generated at [{default_path:?}]");
-            }
-        }
-    };
-    let TlumokConfig { deepl_api_key } = TlumokConfig::load_default()?;
-    // <ui::TlumokState as iced::pure::Application>::run(iced::Settings::default())
-    //     .wrap_err("running app")?;
+            Commands::Translate { file } => {
+                let file = file.canonicalize()?;
+                Path::try_exists(&file).wrap_err("opening document for translation")?;
+                let original_document = OriginalDocument::from_file(&file)
+                    .wrap_err_with(|| format!("opening original document {file:?}"))?;
+                let default_path =
+                    TranslationWorkspace::default_path_for_document(&original_document);
+                default_path
+                    .try_exists()
+                    .wrap_err("translation workspace does not exist")?;
+                let TlumokConfig { deepl_api_key } = TlumokConfig::load_default()?;
+                let translation_service = TranslationService::new(deepl_api_key).await?;
 
+                let translation_workspace = TranslationWorkspace::load(&default_path).await?;
+                let translation_workspace = translation_workspace
+                    .translate(&translation_service)
+                    .await?;
+                translation_workspace.save(&default_path).await?;
+            }
+            Commands::InitializeTranslationWorkspace { file } => {
+                let file = file.canonicalize()?;
+                Path::try_exists(&file).wrap_err("opening document for translation")?;
+                let original_document = OriginalDocument::from_file(&file)
+                    .wrap_err_with(|| format!("opening original document {file:?}"))?;
+                let default_path =
+                    TranslationWorkspace::default_path_for_document(&original_document);
+                if default_path.exists() {
+                    tracing::error!("[{default_path:?}] already exists");
+                } else {
+                    let translation_workspace =
+                        TranslationWorkspace::for_document(original_document)
+                            .await
+                            .context("creating workspace for [{file:?}]")?;
+                    translation_workspace.save(&default_path).await?;
+                    tracing::info!("new workspace generated at [{default_path:?}]");
+                }
+            }
+            Commands::ApplyTranslations { file } => {
+                let file = file.canonicalize()?;
+
+                Path::try_exists(&file).wrap_err("opening document for translation")?;
+
+                let original_document = OriginalDocument::from_file(&file)
+                    .wrap_err_with(|| format!("opening original document {file:?}"))?;
+                let default_path =
+                    TranslationWorkspace::default_path_for_document(&original_document);
+                let translation_workspace = TranslationWorkspace::load(&default_path).await?;
+                let translation_workspace = translation_workspace.validated()?;
+                // let translated_document = translation_workspace.create_translated_document().await?;
+                translation_workspace.save_translated_document().await?;
+            }
+        },
+        None => {
+            <ui::TlumokState as iced::pure::Application>::run(Default::default())?;
+        }
+    }
     Ok(())
 }

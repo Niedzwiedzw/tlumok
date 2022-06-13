@@ -1,16 +1,21 @@
 tlumok_version = '0.1.0'
 
 [original_document]
-path = './test-data/example-1.txt'
+path = '/home/niedzwiedz/Programming/tlumok/test-data/example-1.txt'
 file_format = 'Txt'
+
+[translation_options]
+source_language = 'English'
+target_language = 'Polish'
 [segments.segments.segment_0]
 original_text = '''
 Juvenes Translatores | EN -2020
 '''
 translated_text = '''
-Juvenes Translatores | EN -2020
+Juvenes Translatores | PL -2020
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_0.original_document_slice]
 start = 0
@@ -21,595 +26,631 @@ original_text = '''
 Archaeological report: Brussels, 8 May 2095
 '''
 translated_text = '''
-Archaeological report: Brussels, 8 May 2095
+Raport archeologiczny: Bruksela, 8 maja 2095 r.
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_1.original_document_slice]
 start = 32
 len = 44
 
 [segments.segments.segment_2]
-original_text = '''
-Digital
-'''
-translated_text = '''
-Digital
-'''
-checked = false
+original_text = 'Digital archaeologists find occasional gems in the vast European information repository. '
+translated_text = 'Cyfrowi archeolodzy znajdują okazjonalne skarby w ogromnym europejskim repozytorium informacji.'
+checked = true
+translated = true
 
 [segments.segments.segment_2.original_document_slice]
 start = 76
-len = 8
+len = 89
 
 [segments.segments.segment_3]
-original_text = ' archaeologists find occasional gems in the vast European information repository. '
-translated_text = ' archaeologists find occasional gems in the vast European information repository. '
-checked = false
+original_text = '''
+Taken
+'''
+translated_text = '''
+Pobrano
+'''
+checked = true
+translated = true
 
 [segments.segments.segment_3.original_document_slice]
-start = 84
-len = 82
+start = 165
+len = 6
 
 [segments.segments.segment_4]
 original_text = '''
-Taken
+from the mountain of uncatalogued ephemera, this text is written in a style suggesting
 '''
 translated_text = '''
-Taken
+z góry nieskatalogowanych efemeryd, ten tekst jest napisany stylem sugerującym
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_4.original_document_slice]
-start = 166
-len = 6
+start = 171
+len = 87
 
 [segments.segments.segment_5]
 original_text = '''
-from the mountain of uncatalogued ephemera, this text is written in a style suggesting
+composition in the early 21st century, possibly even on paper.
 '''
 translated_text = '''
-from the mountain of uncatalogued ephemera, this text is written in a style suggesting
+kompozycji na początku XXI wieku, być może nawet na papierze.
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_5.original_document_slice]
-start = 172
-len = 87
+start = 258
+len = 63
 
 [segments.segments.segment_6]
 original_text = '''
-composition in the early 21st century, possibly even on paper.
+Diary fragment 1:
 '''
 translated_text = '''
-composition in the early 21st century, possibly even on paper.
+Fragment dziennika 1:
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_6.original_document_slice]
-start = 259
-len = 63
+start = 321
+len = 18
 
 [segments.segments.segment_7]
 original_text = '''
-Diary fragment 1:
+Dear Diary,
 '''
 translated_text = '''
-Diary fragment 1:
+Drogi pamiętniku,
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_7.original_document_slice]
-start = 322
-len = 18
-
-[segments.segments.segment_8]
-original_text = '''
-Dear Diary,
-'''
-translated_text = '''
-Dear Diary,
-'''
-checked = false
-
-[segments.segments.segment_8.original_document_slice]
-start = 340
+start = 339
 len = 12
 
-[segments.segments.segment_9]
+[segments.segments.segment_8]
 original_text = 'Day 1 of our boating holiday on the Sûre in Luxembourg! '
-translated_text = 'Day 1 of our boating holiday on the Sûre in Luxembourg! '
-checked = false
+translated_text = 'Pierwszy dzień naszych żeglarskich wakacji na rzece Sûre w Luksemburgu!'
+checked = true
+translated = true
 
-[segments.segments.segment_9.original_document_slice]
-start = 352
+[segments.segments.segment_8.original_document_slice]
+start = 351
 len = 57
 
-[segments.segments.segment_10]
+[segments.segments.segment_9]
 original_text = '''
 Up at the crack of dawn to get to the
 '''
 translated_text = '''
-Up at the crack of dawn to get to the
+Pobudka o świcie, aby zdążyć na
 '''
-checked = false
+checked = true
+translated = true
 
-[segments.segments.segment_10.original_document_slice]
-start = 409
+[segments.segments.segment_9.original_document_slice]
+start = 408
 len = 38
 
-[segments.segments.segment_11]
+[segments.segments.segment_10]
 original_text = 'departure point. '
-translated_text = 'departure point. '
-checked = false
+translated_text = 'miejsce wyjazdu.'
+checked = true
+translated = true
+
+[segments.segments.segment_10.original_document_slice]
+start = 446
+len = 17
+
+[segments.segments.segment_11]
+original_text = '''
+Ten minutes to learn the ropes and then off we set in our canoes!
+'''
+translated_text = '''
+Dziesięć minut na zapoznanie się z linami, a potem wyruszyliśmy w naszych kajakach!
+'''
+checked = true
+translated = true
 
 [segments.segments.segment_11.original_document_slice]
-start = 447
-len = 17
+start = 463
+len = 66
 
 [segments.segments.segment_12]
 original_text = '''
-Ten minutes to learn the ropes and then off we set in our canoes!
+There was not a breath of wind as we drifted downstream, sometimes passing an angler staring
 '''
 translated_text = '''
-Ten minutes to learn the ropes and then off we set in our canoes!
+Nie było ani śladu wiatru, gdy dryfowaliśmy w dół rzeki, czasem mijając wędkarzy wpatrzonych w siebie.
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_12.original_document_slice]
-start = 464
-len = 66
-
-[segments.segments.segment_13]
-original_text = '''
-There was not a breath of wind as we drifted downstream, sometimes passing an angler staring
-'''
-translated_text = '''
-There was not a breath of wind as we drifted downstream, sometimes passing an angler staring
-'''
-checked = false
-
-[segments.segments.segment_13.original_document_slice]
-start = 530
+start = 529
 len = 93
 
-[segments.segments.segment_14]
+[segments.segments.segment_13]
 original_text = 'intently at his float, or a group of children paddling. '
-translated_text = 'intently at his float, or a group of children paddling. '
-checked = false
+translated_text = 'uważnie przygląda się swojemu pływakowi lub grupie dzieci wiosłujących.'
+checked = true
+translated = true
+
+[segments.segments.segment_13.original_document_slice]
+start = 622
+len = 56
+
+[segments.segments.segment_14]
+original_text = '''
+When I commented that the signs on the
+'''
+translated_text = '''
+Kiedy zauważyłem, że znaki na
+'''
+checked = true
+translated = true
 
 [segments.segments.segment_14.original_document_slice]
-start = 623
-len = 56
+start = 678
+len = 39
 
 [segments.segments.segment_15]
 original_text = '''
-When I commented that the signs on the
+two sides of the river looked like they were written in different languages, Dad grinned: “They’re
 '''
 translated_text = '''
-When I commented that the signs on the
+Dwa brzegi rzeki wyglądały, jakby były zapisane w różnych językach, tata uśmiechnął się: "One są
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_15.original_document_slice]
-start = 679
-len = 39
-
-[segments.segments.segment_16]
-original_text = '''
-two sides of the river looked like they were written in different languages, Dad grinned: “They’re
-'''
-translated_text = '''
-two sides of the river looked like they were written in different languages, Dad grinned: “They’re
-'''
-checked = false
-
-[segments.segments.segment_16.original_document_slice]
-start = 718
+start = 717
 len = 103
 
-[segments.segments.segment_17]
+[segments.segments.segment_16]
 original_text = 'two different countries – Germany on our left and Luxembourg on our right! '
-translated_text = 'two different countries – Germany on our left and Luxembourg on our right! '
-checked = false
+translated_text = 'dwa różne kraje - Niemcy po naszej lewej stronie i Luksemburg po prawej!'
+checked = true
+translated = true
+
+[segments.segments.segment_16.original_document_slice]
+start = 820
+len = 77
+
+[segments.segments.segment_17]
+original_text = '''
+We’re navigating
+'''
+translated_text = '''
+Poruszamy się
+'''
+checked = true
+translated = true
 
 [segments.segments.segment_17.original_document_slice]
-start = 821
-len = 77
+start = 897
+len = 19
 
 [segments.segments.segment_18]
 original_text = '''
-We’re navigating
+pretty much along the border!”
 '''
 translated_text = '''
-We’re navigating
+prawie wzdłuż granicy!".
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_18.original_document_slice]
-start = 898
-len = 19
+start = 916
+len = 33
 
 [segments.segments.segment_19]
 original_text = '''
-pretty much along the border!”
+Analytical note 1:
 '''
 translated_text = '''
-pretty much along the border!”
+Notatka analityczna 1:
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_19.original_document_slice]
-start = 917
-len = 33
+start = 949
+len = 19
 
 [segments.segments.segment_20]
 original_text = '''
-Analytical note 1:
+In this period, geographical information was provided in the form of metal panels or ‘signs’
 '''
 translated_text = '''
-Analytical note 1:
+W tym okresie informacje geograficzne były przekazywane w formie metalowych paneli lub "znaków".
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_20.original_document_slice]
-start = 950
-len = 19
-
-[segments.segments.segment_21]
-original_text = '''
-In this period, geographical information was provided in the form of metal panels or ‘signs’
-'''
-translated_text = '''
-In this period, geographical information was provided in the form of metal panels or ‘signs’
-'''
-checked = false
-
-[segments.segments.segment_21.original_document_slice]
-start = 969
+start = 968
 len = 97
 
-[segments.segments.segment_22]
+[segments.segments.segment_21]
 original_text = 'mounted on poles. '
-translated_text = 'mounted on poles. '
-checked = false
+translated_text = 'montowane na słupach.'
+checked = true
+translated = true
+
+[segments.segments.segment_21.original_document_slice]
+start = 1065
+len = 18
+
+[segments.segments.segment_22]
+original_text = '''
+Numerous examples can now be found in museums.
+'''
+translated_text = '''
+Liczne egzemplarze znajdują się obecnie w muzeach.
+'''
+checked = true
+translated = true
 
 [segments.segments.segment_22.original_document_slice]
-start = 1066
-len = 18
+start = 1083
+len = 47
 
 [segments.segments.segment_23]
 original_text = '''
-Numerous examples can now be found in museums.
+Diary fragment 2:
 '''
 translated_text = '''
-Numerous examples can now be found in museums.
+Fragment dziennika 2:
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_23.original_document_slice]
-start = 1084
-len = 47
+start = 1130
+len = 18
 
 [segments.segments.segment_24]
 original_text = '''
-Diary fragment 2:
+I couldn’t get over that – I mean, if we want to go abroad we have to get on a plane or a ferry,
 '''
 translated_text = '''
-Diary fragment 2:
+Nie mogłem się z tym pogodzić - przecież jeśli chcemy wyjechać za granicę, musimy wsiąść do samolotu lub na prom,
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_24.original_document_slice]
-start = 1131
-len = 18
-
-[segments.segments.segment_25]
-original_text = '''
-I couldn’t get over that – I mean, if we want to go abroad we have to get on a plane or a ferry,
-'''
-translated_text = '''
-I couldn’t get over that – I mean, if we want to go abroad we have to get on a plane or a ferry,
-'''
-checked = false
-
-[segments.segments.segment_25.original_document_slice]
-start = 1149
+start = 1148
 len = 101
 
-[segments.segments.segment_26]
+[segments.segments.segment_25]
 original_text = 'but here you can cross to another country without even having to show a passport. '
-translated_text = 'but here you can cross to another country without even having to show a passport. '
-checked = false
+translated_text = 'ale tutaj można przejechać do innego kraju nawet bez konieczności okazywania paszportu.'
+checked = true
+translated = true
+
+[segments.segments.segment_25.original_document_slice]
+start = 1249
+len = 82
+
+[segments.segments.segment_26]
+original_text = '''
+The joy of
+'''
+translated_text = '''
+Radość z
+'''
+checked = true
+translated = true
 
 [segments.segments.segment_26.original_document_slice]
-start = 1250
-len = 82
+start = 1331
+len = 11
 
 [segments.segments.segment_27]
 original_text = '''
-The joy of
+Schengen!
 '''
 translated_text = '''
-The joy of
+Schengen!
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_27.original_document_slice]
-start = 1332
-len = 11
+start = 1342
+len = 10
 
 [segments.segments.segment_28]
 original_text = '''
-Schengen!
+Analytical note 2:
 '''
 translated_text = '''
-Schengen!
+Notatka analityczna 2:
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_28.original_document_slice]
-start = 1343
-len = 10
+start = 1352
+len = 19
 
 [segments.segments.segment_29]
 original_text = '''
-Analytical note 2:
+Schengen was an early, and highly significant, stage in the dismantling of European border
 '''
 translated_text = '''
-Analytical note 2:
+Schengen było wczesnym i bardzo istotnym etapem demontażu granic europejskich.
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_29.original_document_slice]
-start = 1353
-len = 19
-
-[segments.segments.segment_30]
-original_text = '''
-Schengen was an early, and highly significant, stage in the dismantling of European border
-'''
-translated_text = '''
-Schengen was an early, and highly significant, stage in the dismantling of European border
-'''
-checked = false
-
-[segments.segments.segment_30.original_document_slice]
-start = 1372
+start = 1371
 len = 91
 
-[segments.segments.segment_31]
+[segments.segments.segment_30]
 original_text = 'barriers. '
-translated_text = 'barriers. '
-checked = false
+translated_text = 'bariery.'
+checked = true
+translated = true
 
-[segments.segments.segment_31.original_document_slice]
-start = 1463
+[segments.segments.segment_30.original_document_slice]
+start = 1462
 len = 10
 
-[segments.segments.segment_32]
+[segments.segments.segment_31]
 original_text = 'European union was long and complex, encountering frequent obstacles. '
-translated_text = 'European union was long and complex, encountering frequent obstacles. '
-checked = false
+translated_text = 'Unia Europejska była długa i złożona, napotykała częste przeszkody.'
+checked = true
+translated = true
+
+[segments.segments.segment_31.original_document_slice]
+start = 1472
+len = 70
+
+[segments.segments.segment_32]
+original_text = '''
+Indeed many
+'''
+translated_text = '''
+Rzeczywiście wielu
+'''
+checked = true
+translated = true
 
 [segments.segments.segment_32.original_document_slice]
-start = 1473
-len = 70
+start = 1542
+len = 12
 
 [segments.segments.segment_33]
 original_text = '''
-Indeed many
+predicted that it would not survive the Covid pandemic.
 '''
 translated_text = '''
-Indeed many
+przewidywał, że nie przetrwa pandemii Covida.
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_33.original_document_slice]
-start = 1543
-len = 12
+start = 1554
+len = 56
 
 [segments.segments.segment_34]
 original_text = '''
-predicted that it would not survive the Covid pandemic.
+Diary fragment 3:
 '''
 translated_text = '''
-predicted that it would not survive the Covid pandemic.
+Fragment dziennika 3:
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_34.original_document_slice]
-start = 1555
-len = 56
+start = 1610
+len = 18
 
 [segments.segments.segment_35]
 original_text = '''
-Diary fragment 3:
+After last night’s hotel (really scraping the bottom of the barrel!), I was prepared for the worst
 '''
 translated_text = '''
-Diary fragment 3:
+Po wczorajszej nocy w hotelu (naprawdę dno beczki!) byłem przygotowany na najgorsze
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_35.original_document_slice]
-start = 1611
-len = 18
-
-[segments.segments.segment_36]
-original_text = '''
-After last night’s hotel (really scraping the bottom of the barrel!), I was prepared for the worst
-'''
-translated_text = '''
-After last night’s hotel (really scraping the bottom of the barrel!), I was prepared for the worst
-'''
-checked = false
-
-[segments.segments.segment_36.original_document_slice]
-start = 1629
+start = 1628
 len = 101
 
-[segments.segments.segment_37]
+[segments.segments.segment_36]
 original_text = 'tonight, but I have my own room with its own bathroom and everything! '
-translated_text = 'tonight, but I have my own room with its own bathroom and everything! '
-checked = false
+translated_text = 'Dziś wieczorem, ale mam swój własny pokój z łazienką i wszystkim innym!'
+checked = true
+translated = true
+
+[segments.segments.segment_36.original_document_slice]
+start = 1729
+len = 70
+
+[segments.segments.segment_37]
+original_text = '''
+In the lounge, I scraped
+'''
+translated_text = '''
+W salonie, skrobałem
+'''
+checked = true
+translated = true
 
 [segments.segments.segment_37.original_document_slice]
-start = 1730
-len = 70
+start = 1799
+len = 25
 
 [segments.segments.segment_38]
 original_text = '''
-In the lounge, I scraped
+together enough German to introduce myself to an Austrian group I met, and soon we were
 '''
 translated_text = '''
-In the lounge, I scraped
+zebrałem wystarczająco dużo niemieckiego, żeby przedstawić się grupie Austriaków, których spotkałem, i wkrótce byliśmy
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_38.original_document_slice]
-start = 1800
-len = 25
+start = 1824
+len = 88
 
 [segments.segments.segment_39]
 original_text = '''
-together enough German to introduce myself to an Austrian group I met, and soon we were
+chatting away nineteen to the dozen.
 '''
 translated_text = '''
-together enough German to introduce myself to an Austrian group I met, and soon we were
+gawędząc od dziewiętnastu do kilkudziesięciu.
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_39.original_document_slice]
-start = 1825
-len = 88
+start = 1912
+len = 37
 
 [segments.segments.segment_40]
-original_text = '''
-chatting away nineteen to the dozen.
-'''
-translated_text = '''
-chatting away nineteen to the dozen.
-'''
-checked = false
+original_text = 'Dinner was hearty – fine by me as I had worked up a ravenous appetite. '
+translated_text = 'Kolacja była obfita, co mi odpowiadało, bo miałem ogromny apetyt.'
+checked = true
+translated = true
 
 [segments.segments.segment_40.original_document_slice]
-start = 1913
-len = 37
-
-[segments.segments.segment_41]
-original_text = 'Dinner was hearty – fine by me as I had worked up a ravenous appetite. '
-translated_text = 'Dinner was hearty – fine by me as I had worked up a ravenous appetite. '
-checked = false
-
-[segments.segments.segment_41.original_document_slice]
-start = 1950
+start = 1949
 len = 73
 
-[segments.segments.segment_42]
+[segments.segments.segment_41]
 original_text = '''
 But soon I felt my
 '''
 translated_text = '''
-But soon I felt my
+Ale wkrótce poczułem, że mój
 '''
-checked = false
+checked = true
+translated = true
 
-[segments.segments.segment_42.original_document_slice]
-start = 2023
+[segments.segments.segment_41.original_document_slice]
+start = 2022
 len = 19
 
-[segments.segments.segment_43]
+[segments.segments.segment_42]
 original_text = 'eyelids drooping and excused myself. '
-translated_text = 'eyelids drooping and excused myself. '
-checked = false
+translated_text = 'opadające powieki i usprawiedliwiłem się.'
+checked = true
+translated = true
+
+[segments.segments.segment_42.original_document_slice]
+start = 2041
+len = 37
+
+[segments.segments.segment_43]
+original_text = '''
+So here I am, writing by the light of my bedside lamp,
+'''
+translated_text = '''
+A więc jestem tutaj, piszę przy świetle mojej lampki nocnej,
+'''
+checked = true
+translated = true
 
 [segments.segments.segment_43.original_document_slice]
-start = 2042
-len = 37
+start = 2078
+len = 55
 
 [segments.segments.segment_44]
 original_text = '''
-So here I am, writing by the light of my bedside lamp,
+looking forward to new adventures on the waterways of Europe tomorrow.
 '''
 translated_text = '''
-So here I am, writing by the light of my bedside lamp,
+Czekamy na nowe przygody na szlakach wodnych Europy już jutro.
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_44.original_document_slice]
-start = 2079
-len = 55
+start = 2133
+len = 71
 
 [segments.segments.segment_45]
 original_text = '''
-looking forward to new adventures on the waterways of Europe tomorrow.
+Analytical note 3:
 '''
 translated_text = '''
-looking forward to new adventures on the waterways of Europe tomorrow.
+Notatka analityczna 3:
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_45.original_document_slice]
-start = 2134
-len = 71
+start = 2204
+len = 19
 
 [segments.segments.segment_46]
 original_text = '''
-Analytical note 3:
+For the unknown writer of this text, Schengen represented a way for holiday-makers to enjoy
 '''
 translated_text = '''
-Analytical note 3:
+Dla nieznanego autora tego tekstu Schengen było sposobem na to, by urlopowicze mogli cieszyć się
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_46.original_document_slice]
-start = 2205
-len = 19
-
-[segments.segments.segment_47]
-original_text = '''
-For the unknown writer of this text, Schengen represented a way for holiday-makers to enjoy
-'''
-translated_text = '''
-For the unknown writer of this text, Schengen represented a way for holiday-makers to enjoy
-'''
-checked = false
-
-[segments.segments.segment_47.original_document_slice]
-start = 2224
+start = 2223
 len = 92
 
-[segments.segments.segment_48]
+[segments.segments.segment_47]
 original_text = 'Europe’s rivers. '
-translated_text = 'Europe’s rivers. '
-checked = false
+translated_text = 'Rzeki Europy.'
+checked = true
+translated = true
+
+[segments.segments.segment_47.original_document_slice]
+start = 2315
+len = 19
+
+[segments.segments.segment_48]
+original_text = '''
+Looking back on this tumultuous century, it is now clear that working in union
+'''
+translated_text = '''
+Patrząc wstecz na to burzliwe stulecie, jest dziś jasne, że praca w związku
+'''
+checked = true
+translated = true
 
 [segments.segments.segment_48.original_document_slice]
-start = 2316
-len = 19
+start = 2334
+len = 79
 
 [segments.segments.segment_49]
 original_text = '''
-Looking back on this tumultuous century, it is now clear that working in union
+was vital for European nations to face the challenges that lay ahead.
 '''
 translated_text = '''
-Looking back on this tumultuous century, it is now clear that working in union
+było niezbędne, aby narody europejskie mogły stawić czoła wyzwaniom, które przed nimi stały.
 '''
-checked = false
+checked = true
+translated = true
 
 [segments.segments.segment_49.original_document_slice]
-start = 2335
-len = 79
-
-[segments.segments.segment_50]
-original_text = '''
-was vital for European nations to face the challenges that lay ahead.
-'''
-translated_text = '''
-was vital for European nations to face the challenges that lay ahead.
-'''
-checked = false
-
-[segments.segments.segment_50.original_document_slice]
-start = 2414
+start = 2413
 len = 70

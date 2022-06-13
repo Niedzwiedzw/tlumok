@@ -6,12 +6,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+chrono = "0.4.19"
 clap = { version = "3.1.18", features = ["derive", "cargo"] }
 csv = "1.1.6"
-deepl-api = "0.3.1"
+# deepl-api = "0.3.1"
+deepl-api = {git = "https://github.com/Niedzwiedzw/deepl-api-rs"}
 eyre = "0.6.8"
+futures = "0.3.21"
 iced = { version = "0.4.2", features = ["iced_pure", "pure", "tokio"] }
 indexmap = { version = "1.8.2", features = ["serde", "std", "rayon"] }
+itertools = "0.10.3"
+parking_lot = "0.12.1"
 serde = "1.0.137"
 tokio = { version = "1.19.2", features = ["full"] }
 toml = { version = "0.5.9", features = ["preserve_order"] }
