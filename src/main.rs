@@ -16,6 +16,8 @@ use tracing_subscriber::{
 };
 
 use futures::FutureExt;
+pub mod key_value_cache;
+
 pub mod ui;
 pub mod filesystem {
     use std::path::PathBuf;
@@ -31,6 +33,10 @@ pub mod filesystem {
             std::fs::create_dir_all(&base_dir).context("tworzenie folderu dla aplikacji")?;
         }
         Ok(base_dir)
+    }
+    pub fn dictionaries_directory() -> Result<PathBuf> {
+        let db_path = crate::filesystem::base_directory()?.join("dictionaries");
+        Ok(db_path)
     }
 }
 
@@ -98,7 +104,11 @@ pub mod translation_service {
     use super::Result;
     use super::*;
     use deepl_api::*;
-    use tokio::sync::Mutex;
+    use itertools::Itertools;
+    use tokio::sync::{
+        Mutex,
+        RwLock,
+    };
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Copy)]
     pub enum Language {
@@ -110,7 +120,12 @@ pub mod translation_service {
         pub source_language: Language,
         pub target_language: Language,
     }
-
+    pub type LanguagePair = (Language, Language);
+    impl std::fmt::Display for Language {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", self.to_deepl_language_static())
+        }
+    }
     impl Default for TranslationOptions {
         fn default() -> Self {
             Self {
@@ -121,12 +136,14 @@ pub mod translation_service {
     }
 
     impl Language {
-        pub fn to_deepl_language(self) -> String {
+        pub fn to_deepl_language_static(self) -> &'static str {
             match self {
                 Language::Polish => "PL",
                 Language::English => "EN",
             }
-            .to_string()
+        }
+        pub fn to_deepl_language(self) -> String {
+            self.to_deepl_language_static().to_string()
         }
 
         pub fn deepl_language_opt(self) -> Option<String> {
@@ -151,8 +168,110 @@ pub mod translation_service {
         }
     }
 
+    pub type Translation = (String, String);
+    pub type TranslationCache = CacheFor<Translation>;
+    use crate::key_value_cache::cache_service::{
+        dictionary_at_path,
+        CacheFor,
+    };
+    #[derive(Debug, Clone, Copy, Default)]
+    pub struct DictionaryService;
+
+    impl DictionaryService {
+        async fn get_suggestions_from_db(
+            db: TranslationCache,
+            original_text: String,
+        ) -> Result<Vec<DictionarySuggestion>> {
+            let mut suggestions = vec![];
+
+            if let Some(exact) = db.get(original_text.clone()).await? {
+                suggestions.push(DictionarySuggestion {
+                    original_text,
+                    translated_text: exact,
+                    match_type: MatchType::Exact,
+                });
+            }
+            Ok(suggestions)
+        }
+        async fn get_suggestions_from_db_at_path(
+            db_path: PathBuf,
+            original_text: String,
+        ) -> Result<Vec<DictionarySuggestion>> {
+            let cache = tokio::task::block_in_place(|| {
+                crate::key_value_cache::cache_service::dictionary_at_path(db_path)
+            })?;
+            Self::get_suggestions_from_db(cache, original_text).await
+        }
+        pub async fn get_project_suggestions(
+            original_document_path: PathBuf,
+            language_pair: LanguagePair,
+            original_text: String,
+        ) -> Result<Vec<DictionarySuggestion>> {
+            let cache = tokio::task::block_in_place(|| {
+                crate::key_value_cache::cache_service::project_dictionary(
+                    &original_document_path,
+                    language_pair,
+                )
+            })?;
+            Self::get_suggestions_from_db(cache, original_text).await
+        }
+        pub async fn get_global_suggestions(
+            language_pair: LanguagePair,
+            original_text: String,
+        ) -> Result<Vec<DictionarySuggestion>> {
+            let lang_dir =
+                crate::key_value_cache::cache_service::language_pair_db_key(language_pair)?;
+            let valid_dictionary_dirs = tokio::task::block_in_place(|| -> Result<_> {
+                let dictionary_dirs =
+                    std::fs::read_dir(&lang_dir).wrap_err("reading all project dictionaries")?;
+                let valid = dictionary_dirs
+                    .into_iter()
+                    .filter_map(|d| d.ok())
+                    .map(|d| d.path())
+                    .filter(|d| d.is_dir())
+                    .collect_vec();
+                Ok(valid)
+            })?;
+            let dictionaries = valid_dictionary_dirs
+                .into_iter()
+                .filter_map(|path| dictionary_at_path(path).ok());
+            let suggestions: Vec<Vec<_>> = futures::stream::iter(dictionaries)
+                .map(|db| Self::get_suggestions_from_db(db, original_text.clone()))
+                .buffer_unordered(10)
+                .try_collect()
+                .await?;
+            let mut out = vec![];
+            let mut uniques = std::collections::HashSet::new();
+            for suggestion in suggestions.into_iter().flatten() {
+                if uniques.contains(&suggestion.translated_text) {
+                    continue;
+                }
+                uniques.insert(suggestion.translated_text.clone());
+                out.push(suggestion);
+            }
+            Ok(out)
+        }
+    }
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum MatchType {
+        Exact,
+        PartialPercent(u32),
+    }
+    #[derive(Debug, Clone)]
+    pub struct DictionarySuggestion {
+        pub original_text: String,
+        pub translated_text: String,
+        pub match_type: MatchType,
+    }
+    #[derive(Debug, Clone)]
+    pub struct DictionarySuggestions {
+        pub project_suggestions: Vec<DictionarySuggestion>,
+        pub global_suggestions: Vec<DictionarySuggestion>,
+    }
     pub struct TranslationService {
         pub deepl_client: Arc<Mutex<DeepL>>,
+        /// hidden behind a RwLock to prevent data-races
+        pub dictionary_service: Arc<RwLock<DictionaryService>>,
     }
 
     impl TranslationService {
@@ -167,7 +286,10 @@ pub mod translation_service {
                     .wrap_err("connecting to deepl api")?
             );
             let deepl_client = Arc::new(Mutex::new(deepl_client));
-            Ok(Self { deepl_client })
+            Ok(Self {
+                deepl_client,
+                dictionary_service: Default::default(),
+            })
         }
     }
 
