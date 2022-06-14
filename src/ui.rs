@@ -149,15 +149,23 @@ fn or_error<'a, Message>(res: Result<Element<'a, Message>>) -> Element<'a, Messa
 }
 // pub struct WorkspaceManager;
 impl InWorkspace {
-    pub fn select_index(&mut self, focused_index: String) {
+    pub fn select_index(&mut self, next_index: String) {
         if self
             .translation_workspace
             .segments
             .segments
-            .get(&focused_index)
+            .get(&next_index)
             .is_some()
         {
-            self.focused_index = Some(focused_index)
+            let is_same = self
+                .focused_index
+                .as_ref()
+                .map(|current| current == &next_index)
+                .unwrap_or_default();
+            if !is_same {
+                self.suggestions = SuggestionPanel::default();
+            }
+            self.focused_index = Some(next_index)
         }
     }
     pub fn view<'a>(&'a self) -> Element<'a, Message> {
