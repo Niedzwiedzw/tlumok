@@ -116,7 +116,7 @@ pub mod translation_service {
         English,
     }
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Copy)]
-    pub struct TranslationOptions {
+    pub struct TlumokTranslationOptions {
         pub source_language: Language,
         pub target_language: Language,
     }
@@ -126,7 +126,7 @@ pub mod translation_service {
             write!(f, "{}", self.to_deepl_language_static())
         }
     }
-    impl Default for TranslationOptions {
+    impl Default for TlumokTranslationOptions {
         fn default() -> Self {
             Self {
                 source_language: Language::English,
@@ -151,7 +151,7 @@ pub mod translation_service {
         }
     }
 
-    impl TranslationOptions {
+    impl TlumokTranslationOptions {
         pub fn default_translatable_text_list(&self) -> TranslatableTextList {
             TranslatableTextList {
                 source_language: self.source_language.deepl_language_opt(),
@@ -174,14 +174,16 @@ pub mod translation_service {
         dictionary_at_path,
         CacheFor,
     };
-    #[derive(Debug, Clone, Copy, Default)]
-    pub struct DictionaryService;
+    #[derive(Debug, Clone, Default)]
+    pub struct DictionaryService(Arc<RwLock<()>>);
 
     impl DictionaryService {
         async fn get_suggestions_from_db(
+            self,
             db: TranslationCache,
             original_text: String,
         ) -> Result<Vec<DictionarySuggestion>> {
+            let _guard = self.0.read().await;
             let mut suggestions = vec![];
 
             if let Some(exact) = db.get(original_text.clone()).await? {
@@ -193,29 +195,36 @@ pub mod translation_service {
             }
             Ok(suggestions)
         }
-        async fn get_suggestions_from_db_at_path(
-            db_path: PathBuf,
-            original_text: String,
-        ) -> Result<Vec<DictionarySuggestion>> {
-            let cache = tokio::task::block_in_place(|| {
-                crate::key_value_cache::cache_service::dictionary_at_path(db_path)
-            })?;
-            Self::get_suggestions_from_db(cache, original_text).await
-        }
+        // async fn get_suggestions_from_db_at_path(
+        //     db_path: PathBuf,
+        //     original_text: String,
+        // ) -> Result<Vec<DictionarySuggestion>> {
+        //     let cache = tokio::task::block_in_place(|| {
+        //         crate::key_value_cache::cache_service::dictionary_at_path(db_path)
+        //     })?;
+        //     Self::get_suggestions_from_db(cache, original_text).await
+        // }
         pub async fn get_project_suggestions(
+            self,
             original_document_path: PathBuf,
             language_pair: LanguagePair,
             original_text: String,
         ) -> Result<Vec<DictionarySuggestion>> {
+            let _guard = (&self.0).read().await;
+
             let cache = tokio::task::block_in_place(|| {
                 crate::key_value_cache::cache_service::project_dictionary(
                     &original_document_path,
                     language_pair,
                 )
-            })?;
-            Self::get_suggestions_from_db(cache, original_text).await
+            })
+            .wrap_err_with(|| format!("fetching db based on project [{original_document_path:?}] and languages [{language_pair:?}]"))?;
+            self.clone()
+                .get_suggestions_from_db(cache, original_text)
+                .await
         }
         pub async fn get_global_suggestions(
+            self,
             language_pair: LanguagePair,
             original_text: String,
         ) -> Result<Vec<DictionarySuggestion>> {
@@ -236,7 +245,10 @@ pub mod translation_service {
                 .into_iter()
                 .filter_map(|path| dictionary_at_path(path).ok());
             let suggestions: Vec<Vec<_>> = futures::stream::iter(dictionaries)
-                .map(|db| Self::get_suggestions_from_db(db, original_text.clone()))
+                .map(|db| {
+                    self.clone()
+                        .get_suggestions_from_db(db, original_text.clone())
+                })
                 .buffer_unordered(10)
                 .try_collect()
                 .await?;
@@ -263,15 +275,22 @@ pub mod translation_service {
         pub translated_text: String,
         pub match_type: MatchType,
     }
-    #[derive(Debug, Clone)]
-    pub struct DictionarySuggestions {
-        pub project_suggestions: Vec<DictionarySuggestion>,
-        pub global_suggestions: Vec<DictionarySuggestion>,
-    }
+    // #[derive(Debug, Clone)]
+    // pub struct DictionarySuggestions {
+    //     pub project_suggestions: Vec<DictionarySuggestion>,
+    //     pub global_suggestions: Vec<DictionarySuggestion>,
+    // }
+
+    #[derive(Clone)]
     pub struct TranslationService {
         pub deepl_client: Arc<Mutex<DeepL>>,
         /// hidden behind a RwLock to prevent data-races
-        pub dictionary_service: Arc<RwLock<DictionaryService>>,
+        pub dictionary_service: DictionaryService,
+    }
+    impl std::fmt::Debug for TranslationService {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "TranslationService")
+        }
     }
 
     impl TranslationService {
@@ -296,11 +315,11 @@ pub mod translation_service {
     impl TranslationService {
         #[tracing::instrument(skip(self), level = "info")]
         pub async fn translate_text(
-            &self,
-            text: &str,
-            translation_options: TranslationOptions,
+            self,
+            text: String,
+            translation_options: TlumokTranslationOptions,
         ) -> Result<String> {
-            let translatable_text_list = translation_options.translatable_text_list(text);
+            let translatable_text_list = translation_options.translatable_text_list(&text);
             let deepl_client = self.deepl_client.lock().await;
             let translated = deepl_client
                 .translate(None, translatable_text_list)
@@ -316,9 +335,9 @@ pub mod translation_service {
             Ok(translated)
         }
         pub async fn translate_segment(
-            &self,
+            self,
             segment: TranslationSegment,
-            translation_options: TranslationOptions,
+            translation_options: TlumokTranslationOptions,
         ) -> Result<TranslationSegment> {
             let TranslationSegment {
                 original_text,
@@ -331,7 +350,7 @@ pub mod translation_service {
                 Ok(segment)
             } else {
                 let translated_text = self
-                    .translate_text(&original_text, translation_options)
+                    .translate_text(original_text.clone(), translation_options)
                     .await?;
                 Ok(TranslationSegment {
                     original_text,
@@ -385,7 +404,7 @@ impl std::fmt::Display for FileFormat {
 }
 use indexmap::IndexMap;
 use translation_service::{
-    TranslationOptions,
+    TlumokTranslationOptions,
     TranslationService,
 };
 type TranslationSegmentMap = IndexMap<String, TranslationSegment>;
@@ -398,18 +417,19 @@ pub struct TranslationSegments {
 pub struct TranslationWorkspace {
     pub tlumok_version: String,
     pub original_document: OriginalDocument,
-    pub translation_options: TranslationOptions,
+    pub translation_options: TlumokTranslationOptions,
     pub segments: TranslationSegments,
 }
 impl TranslationSegments {
     pub async fn translate(
         self,
         translation_service: &translation_service::TranslationService,
-        translation_options: TranslationOptions,
+        translation_options: TlumokTranslationOptions,
     ) -> Result<Self> {
         let segments = futures::stream::iter(self.segments)
             .map(|(index, segment)| {
                 translation_service
+                    .clone()
                     .translate_segment(segment, translation_options)
                     .map(|result| result.map(|translated| (index, translated)))
             })
@@ -703,7 +723,14 @@ async fn main() -> Result<()> {
             }
         },
         None => {
-            <ui::TlumokState as iced::pure::Application>::run(Default::default())?;
+            tracing::info!("getting deepl api key");
+            let TlumokConfig { deepl_api_key } = TlumokConfig::load_default()?;
+            tracing::info!("connecting to deepl api and setting up dictionary databases");
+            let translation_service = TranslationService::new(deepl_api_key).await?;
+            tracing::info!("starting graphical interface");
+            <ui::TlumokState as iced::pure::Application>::run(iced::Settings::with_flags((
+                translation_service,
+            )))?;
         }
     }
     Ok(())

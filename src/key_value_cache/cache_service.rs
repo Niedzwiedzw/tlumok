@@ -14,30 +14,53 @@ pub struct CacheFor<KV> {
     expires_after: ExpiresAfter,
 }
 
+#[tracing::instrument(ret)]
 pub fn language_pair_db_key(language_pair: LanguagePair) -> Result<PathBuf> {
-    Ok(crate::filesystem::dictionaries_directory()?
-        .join(format!("{}-{}", language_pair.0, language_pair.1)))
+    let dir = crate::filesystem::dictionaries_directory()?
+        .join(format!("{}-{}", language_pair.0, language_pair.1));
+    tracing::info!("language directory detected to be {dir:?}");
+    if !dir.exists() {
+        std::fs::create_dir_all(&dir).wrap_err("creating language root directory")?;
+    }
+    Ok(dir)
 }
 
+#[tracing::instrument(ret)]
 pub fn project_part_of_db_key(project_key: String, type_name: &'static str) -> PathBuf {
     PathBuf::from(&format!("{project_key}")).join(type_name)
 }
 
+#[tracing::instrument(ret)]
 pub fn dictionary_project_key_language_pair_key(
     language_pair: LanguagePair,
     project_key: String,
     type_name: &'static str,
 ) -> Result<PathBuf> {
-    language_pair_db_key(language_pair)
-        .map(|base| base.join(project_part_of_db_key(project_key, type_name)))
+    let language = language_pair_db_key(language_pair)?;
+    tracing::info!("language dir {language:?}");
+    let project_part = project_part_of_db_key(project_key, type_name);
+    tracing::info!("project_part: {project_part:?}");
+    // let full_path = language.join(project_part);
+    let full_path = project_part
+        .components()
+        .into_iter()
+        .filter(|p| match p {
+            std::path::Component::RootDir => false,
+            _ => true,
+        })
+        .fold(language, |acc, next| acc.join(dbg!(next)));
+    tracing::info!("full: {full_path:?}");
+    Ok(full_path)
 }
 
+#[tracing::instrument(ret)]
 pub fn original_document_path_project_key(path: &Path) -> String {
     path.components()
         .into_iter()
         .map(|c| c.as_os_str().to_string_lossy())
         .join("_")
 }
+#[tracing::instrument(ret)]
 pub fn project_dictionary(
     original_document_path: &Path,
     language_pair: LanguagePair,
@@ -53,8 +76,11 @@ pub fn project_dictionary(
     )?)
 }
 /// this access is unchecked, prefer usage of [project_dictionary]
+
+#[tracing::instrument(ret)]
 pub fn dictionary_at_path(path: PathBuf) -> Result<translation_service::TranslationCache> {
-    translation_service::TranslationCache::new(path, ExpiresAfter::Never)
+    translation_service::TranslationCache::new(path.clone(), ExpiresAfter::Never)
+        .wrap_err_with(|| format!("opening dictionary db at path [{path:?}]"))
 }
 #[derive(Serialize, Deserialize)]
 pub struct CacheEntry<V> {
