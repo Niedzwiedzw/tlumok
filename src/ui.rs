@@ -302,7 +302,6 @@ impl Application for TlumokState {
         };
         match &mut self.app_mode {
             AppMode::PickingFile(PickingFile { current_dir }) => match message {
-                // Message::FileSelected(_) => todo!(),
                 Message::FileSelected(dir_entry) => match dir_entry.is_dir() {
                     true => *current_dir = dir_entry,
                     false => {
@@ -314,12 +313,19 @@ impl Application for TlumokState {
 
                 _ => {}
             },
-            AppMode::InWorkspace(InWorkspace {
-                translation_workspace,
-                focused_index,
-                suggestions,
-            }) => match message {
+            AppMode::InWorkspace(
+                in_workspace, // InWorkspace {
+                              //     translation_workspace,
+                              //     focused_index,
+                              //     suggestions,
+                              // }
+            ) => match message {
                 Message::TranslationInput((_, new_value)) => {
+                    let InWorkspace {
+                        translation_workspace,
+                        focused_index,
+                        suggestions,
+                    } = in_workspace;
                     if let Some(focused_index) = focused_index.as_ref() {
                         if let Some(segment) = translation_workspace
                             .segments
@@ -331,6 +337,11 @@ impl Application for TlumokState {
                     }
                 }
                 Message::CtrlTab => {
+                    let InWorkspace {
+                        translation_workspace,
+                        focused_index,
+                        suggestions,
+                    } = in_workspace;
                     let keys = translation_workspace.segments.segments.keys().collect_vec();
                     if let Some((previous, _)) =
                         keys.iter().zip(keys.iter().skip(1)).find(|(_, current)| {
@@ -344,6 +355,11 @@ impl Application for TlumokState {
                     }
                 }
                 Message::Tab => {
+                    let InWorkspace {
+                        translation_workspace,
+                        focused_index,
+                        suggestions,
+                    } = in_workspace;
                     let keys = translation_workspace.segments.segments.keys().collect_vec();
                     if let Some((previous, _)) =
                         keys.iter().skip(1).zip(keys.iter()).find(|(_, current)| {
@@ -356,8 +372,13 @@ impl Application for TlumokState {
                         *focused_index = Some(previous.to_string())
                     }
                 }
-                Message::ClickedOn(index) => *focused_index = Some(index),
+                Message::ClickedOn(index) => in_workspace.focused_index = Some(index),
                 Message::RequestedTranslations((kind, index)) => {
+                    let InWorkspace {
+                        translation_workspace,
+                        focused_index,
+                        suggestions,
+                    } = in_workspace;
                     if let Some(focused_index) = focused_index.as_ref() {
                         let language_pair = {
                             let t = translation_workspace.translation_options;
@@ -429,6 +450,11 @@ impl Application for TlumokState {
                     }
                 }
                 Message::ReceivedTranslations(event) => {
+                    let InWorkspace {
+                        translation_workspace,
+                        focused_index,
+                        suggestions,
+                    } = in_workspace;
                     let (key, kind, new_suggestions) = event.as_ref();
                     if let Some(focused_index) = focused_index.as_ref() {
                         if key == focused_index {
@@ -452,9 +478,12 @@ impl Application for TlumokState {
                         }
                     }
                 } // _ => {}
-                Message::FileSelected(_) => todo!(),
-                Message::NewWorkspaceLoaded(_) => todo!(),
                 Message::ApplyTranslation(dictionary_suggestion) => {
+                    let InWorkspace {
+                        translation_workspace,
+                        focused_index,
+                        suggestions,
+                    } = in_workspace;
                     if let Some(focused_index) = focused_index.as_ref() {
                         if let Some(segment) = translation_workspace
                             .segments
@@ -467,7 +496,8 @@ impl Application for TlumokState {
                 }
                 Message::Save => {
                     return Command::perform(
-                        translation_workspace
+                        in_workspace
+                            .translation_workspace
                             .clone()
                             .save_translated_document()
                             .map(Arc::new),
@@ -478,6 +508,9 @@ impl Application for TlumokState {
                     Ok(_) => {}
                     Err(e) => self.e(&e),
                 },
+
+                Message::FileSelected(_) => todo!(),
+                Message::NewWorkspaceLoaded(_) => todo!(),
             },
         }
         Command::none()
