@@ -23,23 +23,29 @@ pub struct SuggestionPanel {
 }
 
 #[derive(Debug, Clone)]
+pub struct PickingFile {
+    current_dir: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct InWorkspace {
+    translation_workspace: TranslationWorkspace,
+    focused_index: Option<String>,
+    suggestions: SuggestionPanel,
+}
+#[derive(Debug, Clone, derive_more::From)]
 pub enum AppMode {
-    PickingFile {
-        current_dir: PathBuf,
-    },
-    InWorkspace {
-        translation_workspace: TranslationWorkspace,
-        focused_index: Option<String>,
-        suggestions: SuggestionPanel,
-    },
+    PickingFile(PickingFile),
+    InWorkspace(InWorkspace),
 }
 
 impl Default for AppMode {
     fn default() -> Self {
-        Self::PickingFile {
+        PickingFile {
             current_dir: crate::filesystem::base_directory()
                 .expect("failed to find binary's parent dir"),
         }
+        .into()
     }
 }
 #[derive(Clone, Debug)]
@@ -141,13 +147,19 @@ fn or_error<'a, Message>(res: Result<Element<'a, Message>>) -> Element<'a, Messa
         Err(e) => text(format!("{e:?}")).color([0.7, 0.0, 0.0]).into(),
     }
 }
-pub struct WorkspaceManager;
-impl WorkspaceManager {
+// pub struct WorkspaceManager;
+impl InWorkspace {
     pub fn view<'a>(
-        translation_workspace: &'a TranslationWorkspace,
-        focused_index: &'a Option<String>,
-        suggestion_panel: &'a SuggestionPanel,
+        &'a self,
+        // translation_workspace: &'a TranslationWorkspace,
+        // focused_index: &'a Option<String>,
+        // suggestion_panel: &'a SuggestionPanel,
     ) -> Element<'a, Message> {
+        let Self {
+            translation_workspace,
+            focused_index,
+            suggestions: suggestion_panel,
+        } = self;
         let text_cell = || column().width(Length::FillPortion(1));
         let segment_card = |segment: &'a TranslationSegment, key: &'a str| {
             let selected = focused_index.as_ref().map(|i| i == key).unwrap_or_default();
@@ -272,7 +284,7 @@ impl Application for TlumokState {
         if let Message::NewWorkspaceLoaded(res) = &message {
             match res.as_ref() {
                 Ok(translation_workspace) => {
-                    self.app_mode = AppMode::InWorkspace {
+                    self.app_mode = InWorkspace {
                         translation_workspace: translation_workspace.clone(),
                         focused_index: translation_workspace
                             .segments
@@ -282,13 +294,14 @@ impl Application for TlumokState {
                             .cloned(),
                         suggestions: Default::default(),
                     }
+                    .into()
                 }
                 Err(e) => self.e(&e),
             }
             return Command::none();
         };
         match &mut self.app_mode {
-            AppMode::PickingFile { current_dir } => match message {
+            AppMode::PickingFile(PickingFile { current_dir }) => match message {
                 // Message::FileSelected(_) => todo!(),
                 Message::FileSelected(dir_entry) => match dir_entry.is_dir() {
                     true => *current_dir = dir_entry,
@@ -301,11 +314,11 @@ impl Application for TlumokState {
 
                 _ => {}
             },
-            AppMode::InWorkspace {
+            AppMode::InWorkspace(InWorkspace {
                 translation_workspace,
                 focused_index,
                 suggestions,
-            } => match message {
+            }) => match message {
                 Message::TranslationInput((_, new_value)) => {
                     if let Some(focused_index) = focused_index.as_ref() {
                         if let Some(segment) = translation_workspace
@@ -369,8 +382,6 @@ impl Application for TlumokState {
                                             res,
                                         )))
                                     });
-                                    //         .map(Arc::new);
-                                    // return Command::perform(task, Message::NewWorkspaceLoaded);
                                 }
                                 SuggestionKind::Project => {
                                     let task = dictionary_service.get_project_suggestions(
@@ -438,21 +449,6 @@ impl Application for TlumokState {
                                 },
                                 Err(e) => tracing::error!("{e:?}"),
                             }
-                            // match kind {
-                            //     SuggestionKind::Global => match new_suggestions {
-                            //         Ok(v) => suggestions.global_suggestions = Some(v.clone()),
-                            //         Err(e) => ,
-                            //     },
-                            //     SuggestionKind::Machine => match new_suggestions {
-                            //         Ok(v) => suggestions.translator_suggestion = Some(v.clone()),
-
-                            //         Err(e) => ,
-                            //     },
-                            //     SuggestionKind::Project => match new_suggestions {
-                            //         Ok(v) => suggestions.project_suggestions = Some(v.clone()),
-                            //         Err(e) => tracing::error!("{e:?}"),
-                            //     },
-                            // }
                         }
                     }
                 } // _ => {}
@@ -484,68 +480,6 @@ impl Application for TlumokState {
                 },
             },
         }
-        // match message {
-        //     Message::FileSelected(dir_entry) => match dir_entry.is_dir() {
-        //         true => {
-        //             if let AppMode::PickingFile { current_dir } = &mut self.app_mode {
-        //                 *current_dir = dir_entry
-        //             }
-        //         }
-        //         false => {
-        //             let task =
-        //                 TranslationWorkspace::get_or_create_for_path(dir_entry).map(Arc::new);
-        //             return Command::perform(task, Message::NewWorkspaceLoaded);
-        //         }
-        //     },
-        //     Message::NewWorkspaceLoaded(res) => match res.as_ref() {
-
-        //     },
-        //     Message::TranslationInput((key, new_value)) => {
-        //         if let AppMode::InWorkspace {
-        //             translation_workspace,
-        //             focused_index,
-        //             suggestions,
-        //         } = &mut self.app_mode
-        //         {
-
-        //         }
-        //     }
-        //     Message::ClickedOn(index) => {
-        //         if let AppMode::InWorkspace {
-        //             translation_workspace,
-        //             focused_index,
-        //             suggestions,
-        //         } = &mut self.app_mode
-        //         {
-
-        //         }
-        //     }
-        //     Message::CtrlTab => {
-        //         if let AppMode::InWorkspace {
-        //             translation_workspace,
-        //             focused_index,
-        //             suggestions,
-        //         } = &mut self.app_mode
-        //         {
-
-        //         }
-        //     }
-        //     Message::Tab => {
-        //         if let AppMode::InWorkspace {
-        //             translation_workspace,
-        //             focused_index,
-        //             suggestions,
-        //         } = &mut self.app_mode
-        //         {
-
-        //         }
-        //     }
-        //     Message::RequestedTranslations((kind, index)) => match kind {
-        //         SuggestionKind::Global => ,
-        //         SuggestionKind::Machine => todo!(),
-        //         SuggestionKind::Project => todo!(),
-        //     },
-        // }
         Command::none()
     }
 
@@ -554,12 +488,10 @@ impl Application for TlumokState {
             .align_items(iced::Alignment::Center)
             .width(Length::Fill)
             .push(match &self.app_mode {
-                AppMode::PickingFile { current_dir } => or_error(file_picker(&current_dir)),
-                AppMode::InWorkspace {
-                    translation_workspace,
-                    focused_index,
-                    suggestions,
-                } => WorkspaceManager::view(translation_workspace, focused_index, suggestions),
+                AppMode::PickingFile(PickingFile { current_dir }) => {
+                    or_error(file_picker(&current_dir))
+                }
+                AppMode::InWorkspace(in_workspace) => in_workspace.view(),
             });
         let errors = match &self.error {
             Some(e) => column().push(text(format!("{e:#?}")).color([0.7, 0., 0.])),

@@ -12,6 +12,7 @@ clap = { version = "3.1.18", features = ["derive", "cargo"] }
 csv = "1.1.6"
 # deepl-api = "0.3.1"
 deepl-api = {git = "https://github.com/Niedzwiedzw/deepl-api-rs"}
+derive_more = "0.99.17"
 eyre = "0.6.8"
 futures = "0.3.21"
 iced = { version = "0.4.2", features = ["iced_pure", "pure", "tokio"] }
