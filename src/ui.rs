@@ -149,12 +149,18 @@ fn or_error<'a, Message>(res: Result<Element<'a, Message>>) -> Element<'a, Messa
 }
 // pub struct WorkspaceManager;
 impl InWorkspace {
-    pub fn view<'a>(
-        &'a self,
-        // translation_workspace: &'a TranslationWorkspace,
-        // focused_index: &'a Option<String>,
-        // suggestion_panel: &'a SuggestionPanel,
-    ) -> Element<'a, Message> {
+    pub fn select_index(&mut self, focused_index: String) {
+        if self
+            .translation_workspace
+            .segments
+            .segments
+            .get(&focused_index)
+            .is_some()
+        {
+            self.focused_index = Some(focused_index)
+        }
+    }
+    pub fn view<'a>(&'a self) -> Element<'a, Message> {
         let Self {
             translation_workspace,
             focused_index,
@@ -337,42 +343,55 @@ impl Application for TlumokState {
                     }
                 }
                 Message::CtrlTab => {
-                    let InWorkspace {
-                        translation_workspace,
-                        focused_index,
-                        suggestions,
-                    } = in_workspace;
-                    let keys = translation_workspace.segments.segments.keys().collect_vec();
+                    // let InWorkspace {
+                    //     translation_workspace,
+                    //     focused_index,
+                    //     suggestions,
+                    // } = in_workspace;
+                    let keys = in_workspace
+                        .translation_workspace
+                        .segments
+                        .segments
+                        .keys()
+                        .collect_vec();
                     if let Some((previous, _)) =
                         keys.iter().zip(keys.iter().skip(1)).find(|(_, current)| {
-                            focused_index
+                            in_workspace
+                                .focused_index
                                 .as_ref()
                                 .map(|f| &&f == current)
                                 .unwrap_or_default()
                         })
                     {
-                        *focused_index = Some(previous.to_string())
+                        in_workspace.select_index(previous.to_string())
                     }
                 }
                 Message::Tab => {
-                    let InWorkspace {
-                        translation_workspace,
-                        focused_index,
-                        suggestions,
-                    } = in_workspace;
-                    let keys = translation_workspace.segments.segments.keys().collect_vec();
+                    // let InWorkspace {
+                    //     translation_workspace,
+                    //     focused_index,
+                    //     suggestions,
+                    // } = in_workspace;
+                    let keys = in_workspace
+                        .translation_workspace
+                        .segments
+                        .segments
+                        .keys()
+                        .collect_vec();
                     if let Some((previous, _)) =
                         keys.iter().skip(1).zip(keys.iter()).find(|(_, current)| {
-                            focused_index
+                            in_workspace
+                                .focused_index
                                 .as_ref()
                                 .map(|f| &&f == current)
                                 .unwrap_or_default()
                         })
                     {
-                        *focused_index = Some(previous.to_string())
+                        in_workspace.select_index(previous.to_string())
+                        // *focused_index = Some(previous.to_string())
                     }
                 }
-                Message::ClickedOn(index) => in_workspace.focused_index = Some(index),
+                Message::ClickedOn(index) => in_workspace.select_index(index),
                 Message::RequestedTranslations((kind, index)) => {
                     let InWorkspace {
                         translation_workspace,
@@ -443,7 +462,6 @@ impl Application for TlumokState {
                                             }),
                                         )))
                                     });
-                                    // },
                                 }
                             }
                         }
