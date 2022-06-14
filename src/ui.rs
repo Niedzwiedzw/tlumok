@@ -103,6 +103,7 @@ pub enum Message {
     ReceivedTranslations(Arc<(String, SuggestionKind, Result<Vec<DictionarySuggestion>>)>),
     ApplyTranslation(DictionarySuggestion),
     ConfirmTranslation(String),
+    SavedToProjectDictionary(Arc<Result<()>>),
 }
 fn app_title() -> String {
     format!("Tłumok {}", clap::crate_version!())
@@ -148,8 +149,50 @@ fn or_error<'a, Message>(res: Result<Element<'a, Message>>) -> Element<'a, Messa
         Err(e) => text(format!("{e:?}")).color([0.7, 0.0, 0.0]).into(),
     }
 }
-// pub struct WorkspaceManager;
+
 impl InWorkspace {
+    pub fn confirm_current_translation(
+        &mut self,
+        translation_service: TranslationService,
+    ) -> iced::Command<Message> {
+        let Self {
+            translation_workspace:
+                TranslationWorkspace {
+                    original_document: OriginalDocument { path, .. },
+                    translation_options:
+                        TlumokTranslationOptions {
+                            source_language,
+                            target_language,
+                        },
+                    segments,
+                    ..
+                },
+            focused_index,
+            ..
+        } = self;
+        if let Some(focused_index) = focused_index.clone() {
+            if let Some(TranslationSegment {
+                original_text,
+                translated_text,
+                checked,
+                ..
+            }) = segments.segments.get_mut(&focused_index)
+            {
+                *checked = true;
+                let task = translation_service
+                    .dictionary_service
+                    .clone()
+                    .save_translation(
+                        path.to_owned(),
+                        (source_language.clone(), target_language.clone()),
+                        original_text.clone(),
+                        translated_text.clone(),
+                    );
+                return Command::perform(task.map(Arc::new), Message::SavedToProjectDictionary);
+            }
+        }
+        Command::none()
+    }
     pub fn select_index(&mut self, next_index: String) {
         if self
             .translation_workspace
@@ -296,7 +339,7 @@ impl Application for TlumokState {
                     modifiers,
                     key_code,
                 }) if key_code == keyboard::KeyCode::Tab => {
-                    if modifiers.control() {
+                    if modifiers.control() || modifiers.shift() {
                         Some(Message::CtrlTab)
                     } else {
                         Some(Message::Tab)
@@ -382,11 +425,6 @@ impl Application for TlumokState {
                     }
                 }
                 Message::Tab => {
-                    // let InWorkspace {
-                    //     translation_workspace,
-                    //     focused_index,
-                    //     suggestions,
-                    // } = in_workspace;
                     let keys = in_workspace
                         .translation_workspace
                         .segments
@@ -551,16 +589,14 @@ impl Application for TlumokState {
                         .map(|i| i == &index)
                         .unwrap_or_default()
                     {
-                        if let Some(segment) = in_workspace
-                            .translation_workspace
-                            .segments
-                            .segments
-                            .get_mut(&index)
-                        {
-                            segment.checked = true;
-                        }
+                        return in_workspace
+                            .confirm_current_translation(self.translation_service.clone());
                     }
                 }
+                Message::SavedToProjectDictionary(res) => match res.as_ref() {
+                    Ok(_) => {}
+                    Err(e) => self.e(e),
+                },
             },
         }
         Command::none()

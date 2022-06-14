@@ -178,6 +178,24 @@ pub mod translation_service {
     pub struct DictionaryService(Arc<RwLock<()>>);
 
     impl DictionaryService {
+        pub async fn save_translation(
+            self,
+            original_document_path: PathBuf,
+            language_pair: LanguagePair,
+            original_text: String,
+            translated_text: String,
+        ) -> Result<()> {
+            let _guard = self.0.write().await;
+            let cache = tokio::task::block_in_place(|| {
+                crate::key_value_cache::cache_service::project_dictionary(
+                    &original_document_path,
+                    language_pair,
+                )
+            })
+            .wrap_err_with(|| format!("fetching db based on project [{original_document_path:?}] and languages [{language_pair:?}]"))?;
+            cache.insert(original_text, translated_text).await?;
+            Ok(())
+        }
         async fn get_suggestions_from_db(
             self,
             db: TranslationCache,
@@ -195,15 +213,6 @@ pub mod translation_service {
             }
             Ok(suggestions)
         }
-        // async fn get_suggestions_from_db_at_path(
-        //     db_path: PathBuf,
-        //     original_text: String,
-        // ) -> Result<Vec<DictionarySuggestion>> {
-        //     let cache = tokio::task::block_in_place(|| {
-        //         crate::key_value_cache::cache_service::dictionary_at_path(db_path)
-        //     })?;
-        //     Self::get_suggestions_from_db(cache, original_text).await
-        // }
         pub async fn get_project_suggestions(
             self,
             original_document_path: PathBuf,
