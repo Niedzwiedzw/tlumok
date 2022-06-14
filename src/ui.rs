@@ -218,7 +218,6 @@ impl InWorkspace {
             focused_index,
             suggestions: suggestion_panel,
         } = self;
-        let text_cell = || column().width(Length::FillPortion(1));
         let segment_card = |segment: &'a TranslationSegment, key: &'a str| {
             let selected = focused_index.as_ref().map(|i| i == key).unwrap_or_default();
             let confirmed = segment.confirmed.as_ref();
@@ -259,8 +258,12 @@ impl InWorkspace {
             };
             row()
                 .spacing(10)
-                .push(text_cell().push(text(&segment.original_text).color(color)))
-                .push(text_cell().push(translated_part))
+                .push(
+                    column()
+                        .width(Length::FillPortion(1))
+                        .push(text(&segment.original_text).color(color)),
+                )
+                .push(column().width(Length::FillPortion(2)).push(translated_part))
                 .push(controls)
         };
         let translations = translation_workspace
