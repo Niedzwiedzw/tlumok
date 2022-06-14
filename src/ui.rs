@@ -102,6 +102,7 @@ pub enum Message {
     RequestedTranslations((SuggestionKind, String)),
     ReceivedTranslations(Arc<(String, SuggestionKind, Result<Vec<DictionarySuggestion>>)>),
     ApplyTranslation(DictionarySuggestion),
+    ConfirmTranslation(String),
 }
 fn app_title() -> String {
     format!("Tłumok {}", clap::crate_version!())
@@ -177,6 +178,7 @@ impl InWorkspace {
         let text_cell = || column().width(Length::FillPortion(1));
         let segment_card = |segment: &'a TranslationSegment, key: &'a str| {
             let selected = focused_index.as_ref().map(|i| i == key).unwrap_or_default();
+            let checked = segment.checked;
             let color = if selected {
                 [0.0, 0.8, 0.0]
             } else {
@@ -192,11 +194,22 @@ impl InWorkspace {
             } else {
                 text(&segment.translated_text).into()
             };
+
+            let controls = match selected {
+                true => match checked {
+                    true => button("confirmed"),
+                    false => {
+                        button("confirm").on_press(Message::ConfirmTranslation(key.to_string()))
+                    }
+                },
+
+                false => button("select").on_press(Message::ClickedOn(key.to_string())),
+            };
             row()
                 .spacing(10)
                 .push(text_cell().push(text(&segment.original_text).color(color)))
                 .push(text_cell().push(translated_part))
-                .push(button("select").on_press(Message::ClickedOn(key.to_string())))
+                .push(controls)
         };
         let translations = translation_workspace
             .segments
@@ -327,13 +340,7 @@ impl Application for TlumokState {
 
                 _ => {}
             },
-            AppMode::InWorkspace(
-                in_workspace, // InWorkspace {
-                              //     translation_workspace,
-                              //     focused_index,
-                              //     suggestions,
-                              // }
-            ) => match message {
+            AppMode::InWorkspace(in_workspace) => match message {
                 Message::TranslationInput((_, new_value)) => {
                     let InWorkspace {
                         translation_workspace,
@@ -537,6 +544,23 @@ impl Application for TlumokState {
 
                 Message::FileSelected(_) => todo!(),
                 Message::NewWorkspaceLoaded(_) => todo!(),
+                Message::ConfirmTranslation(index) => {
+                    if in_workspace
+                        .focused_index
+                        .as_ref()
+                        .map(|i| i == &index)
+                        .unwrap_or_default()
+                    {
+                        if let Some(segment) = in_workspace
+                            .translation_workspace
+                            .segments
+                            .segments
+                            .get_mut(&index)
+                        {
+                            segment.checked = true;
+                        }
+                    }
+                }
             },
         }
         Command::none()
