@@ -174,11 +174,11 @@ impl InWorkspace {
             if let Some(TranslationSegment {
                 original_text,
                 translated_text,
-                checked,
+                confirmed: checked,
                 ..
             }) = segments.segments.get_mut(&focused_index)
             {
-                *checked = true;
+                *checked = Some(translated_text.clone());
                 let task = translation_service
                     .dictionary_service
                     .clone()
@@ -221,7 +221,7 @@ impl InWorkspace {
         let text_cell = || column().width(Length::FillPortion(1));
         let segment_card = |segment: &'a TranslationSegment, key: &'a str| {
             let selected = focused_index.as_ref().map(|i| i == key).unwrap_or_default();
-            let checked = segment.checked;
+            let confirmed = segment.confirmed.as_ref();
             let color = if selected {
                 [0.0, 0.8, 0.0]
             } else {
@@ -239,11 +239,20 @@ impl InWorkspace {
             };
 
             let controls = match selected {
-                true => match checked {
-                    true => button("confirmed"),
-                    false => {
-                        button("confirm").on_press(Message::ConfirmTranslation(key.to_string()))
+                true => match confirmed {
+                    Some(confirmed_translation) => {
+                        match confirmed_translation == &segment.translated_text {
+                            true => button("confirmed"),
+                            false => button("confirm (edited)")
+                                .on_press(Message::ConfirmTranslation(key.to_string())),
+                        }
                     }
+                    None => {
+                        button("confirm").on_press(Message::ConfirmTranslation(key.to_string()))
+                    } // true => button("confirmed"),
+                      // false => {
+                      //     button("confirm").on_press(Message::ConfirmTranslation(key.to_string()))
+                      // }
                 },
 
                 false => button("select").on_press(Message::ClickedOn(key.to_string())),

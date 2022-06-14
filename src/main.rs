@@ -168,7 +168,7 @@ pub mod translation_service {
         }
     }
 
-    pub type Translation = (String, String);
+    pub type Translation = (String, Vec<String>);
     pub type TranslationCache = CacheFor<Translation>;
     use crate::key_value_cache::cache_service::{
         dictionary_at_path,
@@ -193,7 +193,12 @@ pub mod translation_service {
                 )
             })
             .wrap_err_with(|| format!("fetching db based on project [{original_document_path:?}] and languages [{language_pair:?}]"))?;
-            cache.insert(original_text, translated_text).await?;
+            let current = cache.get(original_text.clone()).await?.unwrap_or_default();
+            let updated = current
+                .into_iter()
+                .chain(std::iter::once(translated_text))
+                .collect();
+            cache.insert(original_text, updated).await?;
             Ok(())
         }
         async fn get_suggestions_from_db(
@@ -205,11 +210,13 @@ pub mod translation_service {
             let mut suggestions = vec![];
 
             if let Some(exact) = db.get(original_text.clone()).await? {
-                suggestions.push(DictionarySuggestion {
-                    original_text,
-                    translated_text: exact,
-                    match_type: MatchType::Exact,
-                });
+                for translated_text in exact.into_iter() {
+                    suggestions.push(DictionarySuggestion {
+                        original_text: original_text.clone(),
+                        translated_text,
+                        match_type: MatchType::Exact,
+                    });
+                }
             }
             Ok(suggestions)
         }
@@ -350,12 +357,11 @@ pub mod translation_service {
         ) -> Result<TranslationSegment> {
             let TranslationSegment {
                 original_text,
-                translated,
-                // checked,
+                confirmed,
                 original_document_slice,
                 ..
             } = segment.clone();
-            if translated {
+            if confirmed.is_some() {
                 Ok(segment)
             } else {
                 let translated_text = self
@@ -364,9 +370,8 @@ pub mod translation_service {
                 Ok(TranslationSegment {
                     original_text,
                     translated_text,
-                    translated: true,
                     original_document_slice,
-                    checked: false,
+                    confirmed,
                 })
             }
         }
@@ -391,8 +396,7 @@ pub struct OriginalDocumentSlice {
 pub struct TranslationSegment {
     pub original_text: String,
     pub translated_text: String,
-    pub checked: bool,
-    pub translated: bool,
+    pub confirmed: Option<String>,
     pub original_document_slice: OriginalDocumentSlice,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -457,8 +461,7 @@ impl TranslationSegments {
             .map(|(start, sentence)| TranslationSegment {
                 original_text: sentence.to_string(),
                 translated_text: NOT_TRANSLATED_MARKER.to_string(),
-                checked: false,
-                translated: false,
+                confirmed: None,
                 original_document_slice: OriginalDocumentSlice {
                     start,
                     len: sentence.len(),
@@ -563,19 +566,19 @@ impl TranslationWorkspace {
     }
     pub fn validated(self) -> Result<Self> {
         let validated = &self;
+        // if let Some((index, segment)) = validated
+        //     .segments
+        //     .segments
+        //     .iter()
+        //     .find(|(_, segment)| !segment.translated)
+        // {
+        //     eyre::bail!("segment [{index}] is not translated\n\n{segment:#?}");
+        // }
         if let Some((index, segment)) = validated
             .segments
             .segments
             .iter()
-            .find(|(_, segment)| !segment.translated)
-        {
-            eyre::bail!("segment [{index}] is not translated\n\n{segment:#?}");
-        }
-        if let Some((index, segment)) = validated
-            .segments
-            .segments
-            .iter()
-            .find(|(_, segment)| !segment.checked)
+            .find(|(_, segment)| !segment.confirmed.is_none())
         {
             eyre::bail!("segment [{index}] is not checked\n\n{segment:#?}");
         }

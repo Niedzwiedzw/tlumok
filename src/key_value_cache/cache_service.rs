@@ -60,7 +60,7 @@ pub fn original_document_path_project_key(path: &Path) -> String {
         .map(|c| c.as_os_str().to_string_lossy())
         .join("_")
 }
-#[tracing::instrument(ret)]
+#[tracing::instrument]
 pub fn project_dictionary(
     original_document_path: &Path,
     language_pair: LanguagePair,
